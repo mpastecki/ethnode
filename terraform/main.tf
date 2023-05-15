@@ -1,3 +1,8 @@
+# Get my public IP to open SSH communication
+data "http" "my_public_ip" {
+  url = "https://ipv4.icanhazip.com"
+}
+
 module "vpc" {
 
   source = "./modules/vpc"
@@ -33,7 +38,7 @@ module "ethnode" {
   vpc_subnets_ids   = module.vpc.aws_subnet.default.*.id
   vpc_subnets_zones = module.vpc.aws_subnet.default.*.availability_zone
   vpc_subnets_cidrs = module.vpc.aws_subnet.default.*.cidr_block
-  ssh_cidr_blocks   = ["46.77.70.212/32"]
+  ssh_cidr_blocks   = ["${chomp(data.http.my_public_ip.body)}/32"]
 
   tags = {
     provenance      = "terraform"
