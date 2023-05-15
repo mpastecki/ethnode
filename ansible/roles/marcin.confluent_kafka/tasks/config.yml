@@ -1,0 +1,63 @@
+---
+# file: config.yml
+
+- name: Configure symlink to kafka installation
+  file:
+    src: "{{ kafka.broker.install_dir }}/{{ kafka_broker_folder_name }}"
+    dest: "{{ kafka.broker.working_dir }}"
+    state: link
+    owner: "{{ kafka.broker.user }}"
+    group: "{{ kafka.broker.group }}"
+
+- name: Set kafka as systemd service
+  template:
+    src: kafka.service.j2
+    dest: /etc/systemd/system/kafka.service
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - systemd daemon reload
+    - enable kafka
+    - restart kafka
+
+- name: Configure kafka server.properties files
+  template:
+    src: server.properties.j2
+    dest: "{{ kafka.broker.conf_dir }}/server.properties"
+    owner: "{{ kafka.broker.user }}"
+    group: "{{ kafka.broker.group }}"
+    mode: 0640
+  notify:
+    - restart kafka
+  when: kafka.broker.security_mode == "plaintext"
+
+- name: Configure kafka server_ssl.properties files
+  template:
+    src: server_ssl.properties.j2
+    dest: "{{ kafka.broker.conf_dir }}/server.properties"
+    owner: "{{ kafka.broker.user }}"
+    group: "{{ kafka.broker.group }}"
+    mode: 0640
+  notify:
+    - restart kafka
+  when: kafka.broker.security_mode == "ssl"
+
+- name: Configure kafka server_sasl_ssl.properties files
+  template:
+    src: server_sasl_ssl.properties.j2
+    dest: "{{ kafka.broker.conf_dir }}/server.properties"
+    owner: "{{ kafka.broker.user }}"
+    group: "{{ kafka.broker.group }}"
+    mode: 0640
+  notify:
+    - restart kafka
+  when: kafka.broker.security_mode == "ssl"
+
+- name: Configure jmxexporter config file
+  template: 
+    src: kafka-2_0_0.yml.j2
+    dest: "{{ kafka.broker.conf_dir }}/kafka-jmxexporter.yml"
+  when: kafka.broker.prometheus_jmx_exporter_deployment|bool == true
+
+- meta: flush_handlers

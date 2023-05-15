@@ -1,0 +1,5 @@
+---
+# file: service.yml
+
+- name: Force all notified handlers to run
+  meta: flush_handlers

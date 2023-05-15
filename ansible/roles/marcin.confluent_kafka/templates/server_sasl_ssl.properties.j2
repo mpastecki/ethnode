@@ -1,0 +1,24 @@
+{{ ansible_managed | comment }}
+
+############################# Server Basics #############################
+
+# The id of the broker. This must be set to a unique integer for each broker.
+broker.id={{ kafka_broker_id }}
+# change your.host.name by your machine's IP or hostname
+listeners=SASL_SSL://{{ ansible_fqdn }}:{{ kafka.broker.port }}
+advertised.listeners=SASL_SSL://{{ ansible_fqdn }}:{{ kafka.broker.port }}
+
+{% include './includes/base_server.properties.j2' %}
+
+security.inter.broker.protocol=SASL_SSL
+#SSL Additions
+ssl.truststore.location=/var/ssl/private/client.truststore.jks
+ssl.truststore.password={{ kafka.broker.ssl_truststore_password }}
+ssl.keystore.location=/var/ssl/private/client.keystore.jks
+ssl.keystore.password={{ kafka.broker.ssl_keystore_password }}
+ssl.key.password={{ kafka.broker.ssl_key_password }}
+
+#SASL Additions
+listener.name.sasl_ssl.plain.sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="broker" password="broker-secret" user_broker="broker-secret" user_client="client-secret";
+sasl.enabled.mechanisms=PLAIN
+sasl.mechanism.inter.broker.protocol=PLAIN

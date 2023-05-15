@@ -1,0 +1,226 @@
+---
+# file: install.yml
+
+- name: Compose filename, if necessary
+  set_fact:
+    kafka_broker_tarball_file: "confluent-community-{{ kafka.confluent_platform.major_version }}.{{ kafka.confluent_platform.minor_version }}"
+  when: kafka_broker_tarball_file is not defined
+
+- name: Compose folder name, if necessary
+  set_fact:
+    kafka_broker_folder_name: "confluent-{{ kafka.confluent_platform.major_version }}.{{ kafka.confluent_platform.minor_version }}"
+  when: kafka_broker_folder_name is not defined
+
+- name: Compose url for downloading file
+  set_fact:
+    kafka_broker_tarball_url:  "http://packages.confluent.io/archive/{{ kafka.confluent_platform.major_version }}/{{ kafka_broker_tarball_file }}"
+
+- name: Compose jmx_exporter filename, if necessary
+  set_fact:
+    kafka_jmxexporter_jar_file: "jmx_prometheus_javaagent-{{ kafka.broker.prometheus_jmx_exporter_version }}"
+  when: prometheus_jmx_exporter_file is not defined
+
+- name: Compose jmx_exporter folder name, if necessary
+  set_fact:
+    kafka_jmxexporter_folder_name: "jmx_prometheus_javaagent"
+  when: prometheus_jmx_exporter_folder_name is not defined
+
+- name: Compose url for downloading jmx_exporter file
+  set_fact:
+    kafka_jmxexporter_jar_url:  "https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/{{ kafka.broker.prometheus_jmx_exporter_version }}/{{ kafka_jmxexporter_jar_file }}"
+
+- name: Make sure kafka group is present
+  group:
+    name: "{{ kafka.broker.group }}"
+    state: present
+
+- name: Make sure kafka user is present
+  user:
+    name: "{{ kafka.broker.user }}"
+    comment: "Kafka User"
+    system: yes
+    groups: "{{ kafka.broker.group }}"
+    home: "{{ kafka.confluent_platform.home_dir}}"
+    create_home: true
+
+- block:  
+
+    - name: Check for existing kafka tarball
+      stat:
+        path: "{{ kafka.confluent_platform.download_path }}/{{ kafka_broker_tarball_file }}.tar.gz"
+      register: kafka_broker_tarball_check_result
+      changed_when: false
+
+    - name: Get the sha256 checksum of the kafka tarball
+      shell: |
+        sha256sum {{ kafka.confluent_platform.download_path }}/{{ kafka_broker_tarball_file }}.tar.gz | awk '{print $1}'
+      register: kafka_broker_tarball_checksum_result
+      changed_when: false
+      when: kafka_broker_tarball_check_result.stat.exists == true
+
+    - name: Remove kafka tarball if there is a checksum mismatch
+      file:
+        path: "{{ kafka.confluent_platform.download_path }}/{{ kafka_broker_tarball_file }}.tar.gz"
+        state: absent
+      when:
+        - kafka_broker_tarball_check_result.stat.exists == true
+        - kafka_broker_tarball_checksum_result.stdout != kafka.confluent_platform.checksum
+
+    - name: Download kafka tarball (as tar.gz file)
+      get_url:
+        url: "{{ kafka_broker_tarball_url }}.tar.gz"
+        dest: "{{ kafka.confluent_platform.download_path }}/{{ kafka_broker_tarball_file }}.tar.gz"
+        mode: 0640
+        checksum: "sha256:{{ kafka.confluent_platform.checksum }}"
+        timeout: 600
+      when: proxy_env == "None"
+
+    - name: Download kafka tarball (as tar.gz file) using proxy
+      get_url:
+        url: "{{ kafka_broker_tarball_url }}.tar.gz"
+        dest: "{{ kafka.confluent_platform.download_path }}/{{ kafka_broker_tarball_file }}.tar.gz"
+        mode: 0640
+        checksum: "sha256:{{ kafka.confluent_platform.checksum }}"
+        timeout: 600
+      environment: "{{ proxy_env }}"
+      when: proxy_env != "None"
+      
+  when: kafka_broker_download_from_confluent|bool == true
+
+- name: Copy tarball from local
+  copy:
+    src: "{{ playbook_dir }}/files/{{ kafka_broker_tarball_file }}.tar.gz"
+    dest: "{{ kafka.confluent_platform.download_path }}/{{ kafka_broker_tarball_file }}.tar.gz"
+  when: kafka_broker_download_from_confluent|bool == false
+
+- name: Create kafka directories
+  file:
+    owner: "{{ kafka.broker.user }}"
+    group: "{{ kafka.broker.group }}"
+    path: "{{ item }}"
+    #mode: "u=rwx,go=rx"
+    state: directory
+    recurse: yes
+  with_items:
+   - "{{ kafka.broker.install_dir }}"
+   - "{{ kafka.broker.conf_dir }}"
+   - "{{ kafka.broker.install_dir }}/{{ kafka_jmxexporter_folder_name }}"
+
+- name: Create kafka broker log directories
+  file:
+    path: "{{ item }}"
+    owner: "{{ kafka.broker.user }}"
+    group: "{{ kafka.broker.group }}"
+    #mode: "u=rwx,go=rx"
+    state: directory
+    recurse: yes
+  with_items:
+    - "{{ kafka.broker.properties.log_dirs }}"
+
+- name: Create kafka broker logfiles directory
+  file:
+    path: "{{ kafka.broker.logfile_dir }}"
+    owner: "{{ kafka.broker.user }}"
+    group: "{{ kafka.broker.group }}"
+    #mode: "u=rwx,go=rx"
+    state: directory
+    recurse: yes
+
+- name: Install kafka via tarball file
+  unarchive:
+    src: "{{ kafka.confluent_platform.download_path }}/{{ kafka_broker_tarball_file }}.tar.gz"
+    dest: "{{ kafka.broker.install_dir }}"
+    owner: "{{ kafka.broker.user }}"
+    group: "{{ kafka.broker.group }}"
+    mode: "go-w"
+    remote_src: yes
+
+- name: Remove temporary downloaded files, if required
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ kafka.confluent_platform.download_path }}/{{ kafka_broker_tarball_file }}.tar.gz"
+  ignore_errors: true
+  when: kafka.broker.remove_download
+
+- block:
+
+    - name: Create ssl certificate directory
+      file:
+        path: "/var/ssl/private"
+        state: directory
+        owner: "{{ kafka.broker.user }}"
+        group: "{{ kafka.broker.group }}"
+        mode: 0700
+
+    - name: Copy ssl related files to host
+      synchronize:
+        src: "generated_ssl_files/"
+        owner: "{{ kafka.broker.user }}"
+        group: "{{ kafka.broker.group }}"
+        dest: "/var/ssl/private"
+        mode: 0600
+
+  when: kafka.broker.security_mode == "ssl" or kafka.broker.security_mode == "sasl_ssl"
+
+- block:
+
+    - name: Check for existing jmx_exporter jar
+      stat:
+        path: "{{ kafka.confluent_platform.download_path }}/{{ kafka_jmxexporter_jar_file }}.jar"
+      register: kafka_jmxexporter_check_result
+      changed_when: false
+
+    - name: Get the sha256 checksum of the jmx_exporter jar
+      shell: |
+        sha256sum {{ kafka.confluent_platform.download_path }}/{{ kafka_jmxexporter_jar_file }}.jar | awk '{print $1}'
+      register: kafka_jmxexporter_checksum_result
+      changed_when: false
+      when: kafka_jmxexporter_check_result.stat.exists == true
+
+    - name: Remove jmx_exporter jar if there is a checksum mismatch
+      file:
+        path: "{{ kafka.confluent_platform.download_path }}/{{ kafka_jmxexporter_jar_file }}.jar"
+        state: absent
+      when:
+        - kafka_jmxexporter_check_result.stat.exists == true
+        - kafka_jmxexporter_checksum_result.stdout != kafka.broker.promethues_jmx_exporter_checksum
+
+    - name: Download jmx_exporter tarball (as jar file)
+      get_url:
+        url: "{{ kafka_jmxexporter_jar_url }}.jar"
+        dest: "{{ kafka.confluent_platform.download_path }}/{{ kafka_jmxexporter_jar_file }}.jar"
+        mode: 0640
+        checksum: "sha256:{{ kafka.broker.promethues_jmx_exporter_checksum }}"
+        timeout: 600
+      when: proxy_env == "None"
+
+    - name: Download jmx_exporter tarball (as jar file) using proxy
+      get_url:
+        url: "{{ kafka_jmxexporter_jar_url }}.jar"
+        dest: "{{ kafka.confluent_platform.download_path }}/{{ kafka_jmxexporter_jar_file }}.jar"
+        mode: 0640
+        checksum: "sha256:{{ kafka.broker.promethues_jmx_exporter_checksum }}"
+        timeout: 600
+      environment: "{{ proxy_env }}"
+      when: proxy_env != "None" 
+
+  when: kafka_jmxexporter_download_from_maven|bool == true and kafka.broker.prometheus_jmx_exporter_deployment|bool == true
+
+- name: Copy jmxexporter jar from local
+  copy:
+    src: "{{ playbook_dir }}/files/{{ kafka_jmxexporter_jar_file }}.jar"
+    dest: "{{ kafka.confluent_platform.download_path }}/{{ kafka_jmxexporter_jar_file }}.jar"
+  when: kafka_jmxexporter_download_from_maven|bool == false and kafka.broker.prometheus_jmx_exporter_deployment|bool == true
+
+- name: Copy jmxexporter jar file to desired destination
+  copy:
+    src: "{{ kafka.confluent_platform.download_path }}/{{ kafka_jmxexporter_jar_file }}.jar"
+    dest: "{{ kafka.broker.install_dir }}/{{ kafka_jmxexporter_folder_name }}"
+    remote_src: yes
+    mode: 0640
+    owner: "{{ kafka.broker.user }}"
+    group: "{{ kafka.broker.group }}"
+  when: kafka.broker.prometheus_jmx_exporter_deployment|bool == true
+

@@ -1,0 +1,11 @@
+{{ ansible_managed | comment }}
+
+############################# Server Basics #############################
+
+# The id of the broker. This must be set to a unique integer for each broker.
+broker.id={{ kafka_broker_id }}
+# change your.host.name by your machine's IP or hostname
+listeners=PLAINTEXT://{{ ansible_fqdn }}:{{ kafka.broker.port }}
+advertised.listeners=PLAINTEXT://{{ ansible_fqdn }}:{{ kafka.broker.port }}
+
+{% include './includes/base_server.properties.j2' %}

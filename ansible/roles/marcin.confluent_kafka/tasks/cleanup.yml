@@ -1,0 +1,7 @@
+---
+# file: cleanup.yml
+
+- name: No cleanup tasks
+  debug:
+    msg: "No cleanup tasks"
+    verbosity: 1

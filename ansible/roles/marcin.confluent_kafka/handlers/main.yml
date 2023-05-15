@@ -1,0 +1,26 @@
+---
+# handlers file for marcin.confluent_kafka
+
+- name: restart kafka
+  systemd:
+    name: kafka
+    state: restarted
+    daemon_reload: yes
+  when: not suppress_kafka_handlers
+
+- name: enable kafka
+  systemd:
+    name: kafka
+    enabled: yes
+    daemon_reload: yes
+
+- name: start kafka
+  systemd:
+    name: kafka
+    state: started
+    daemon_reload: yes
+  when: not suppress_kafka_handlers
+
+- name: systemd daemon reload
+  systemd:
+    daemon_reload: yes

@@ -1,0 +1,43 @@
+---
+# tasks file for marcin.confluent_kafka
+
+- import_tasks: check_vars.yml
+  tags:
+    - "marcin.confluent_kafka"
+    - "marcin.confluent_kafka:check"
+    - "marcin.check"
+    ###########################
+    - "VMLC.provision"
+    - "VMLC.image_build"
+
+- import_tasks: install.yml
+  tags:
+    - "marcin.confluent_kafka"
+    - "marcin.confluent_kafka:install"
+    ###########################
+    - "VMLC.provision"
+    - "VMLC.image_build"
+
+- import_tasks: config.yml
+  tags:
+    - "marcin.confluent_kafka"
+    - "marcin.confluent_kafka:config"
+    ###########################
+    - "VMLC.provision"
+    - "VMLC.image_build"
+
+- import_tasks: service.yml
+  tags:
+    - "marcin.confluent_kafka"
+    - "marcin.confluent_kafka:service"
+    ###########################
+    - "VMLC.provision"
+    - "VMLC.image_build"
+
+- import_tasks: cleanup.yml
+  tags:
+    - "marcin.confluent_kafka"
+    - "marcin.confluent_kafka:cleanup"
+    ###########################
+    - "VMLC.provision"
+    - "VMLC.image_build"

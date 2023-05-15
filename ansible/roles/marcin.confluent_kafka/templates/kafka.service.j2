@@ -1,0 +1,21 @@
+[Unit]
+Description=Confluent Kafka Service
+Documentation=https://docs.confluent.io
+Requires=network.target
+After=network.target zookeeper.target
+
+[Service]
+Type=simple
+User={{ kafka.broker.user }}
+Group={{ kafka.broker.group }}
+Environment="LOG_DIR={{ kafka.broker.logfile_dir }}"
+Environment="JMX_PORT={{ kafka.broker.jmx_port }}"
+Environment="KAFKA_HEAP_OPTS={% for opt in kafka.broker.heap_opts %}{{ opt }}{% if not loop.last %} {% endif %}{% endfor %}"
+Environment="KAFKA_JVM_PERFORMANCE_OPTS={% for opt in kafka.broker.jvm_performance_opts %}{{ opt }}{% if not loop.last %} {% endif %}{% endfor %}"
+{% if kafka.broker.prometheus_jmx_exporter_deployment %}Environment="KAFKA_OPTS=-javaagent:{{ kafka.broker.install_dir }}/{{ kafka_jmxexporter_folder_name }}/{{ kafka_jmxexporter_jar_file }}.jar={{ kafka.broker.prometheus_jmx_exporter_port }}:{{ kafka.broker.conf_dir }}/kafka-jmxexporter.yml"{% endif %}
+
+ExecStart={{ kafka.broker.working_dir }}/bin/kafka-server-start {{ kafka.broker.conf_dir }}/server.properties
+ExecStop={{ kafka.broker.working_dir }}/bin/kafka-server-stop
+
+[Install]
+WantedBy=multi-user.target
