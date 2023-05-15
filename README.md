@@ -5,7 +5,7 @@ This repository contains Terraform code for deploying infrastructure.
 ## Prerequisites
 
 - Install [Terraform](https://www.terraform.io/downloads.html)
-- Set up your cloud provider credentials
+- Set up your cloud provider credentials (bear in mind the hard coded profile in the terraform.tf file)
 
 ## Deployment
 
