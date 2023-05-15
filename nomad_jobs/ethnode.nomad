@@ -35,12 +35,6 @@ job "ethnode" {
       provider = "nomad"
       name     = "authrpc"
       port     = "authrpc"
-      check {
-        name     = "authrpc"
-        type     = "tcp"
-        interval = "10s"
-        timeout  = "1s"
-      }
     }
 
     task "geth" {
@@ -56,7 +50,8 @@ job "ethnode" {
           "--syncmode", "snap",
           "--http",
           "--http.api", "personal,eth,net,web3,txpool",
-          "--http.corsdomain", "*"
+          "--http.corsdomain", "*",
+          "--datadir", "${NOMAD_TASK_DIR}"
         ]
       }
     }
@@ -72,6 +67,7 @@ job "ethnode" {
           "--execution-endpoint", "http://localhost:${NOMAD_PORT_authrpc}",
           "--execution-jwt", "/tmp/jwtsecret",
           "--checkpoint-sync-url", "https://mainnet.checkpoint.sigp.io",
+          "--datadir", "${NOMAD_TASK_DIR}",
           "--disable-deposit-contract-sync"
         ]
       }
