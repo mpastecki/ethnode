@@ -24,7 +24,11 @@ Once the Terraform code finishes, you can run the job with this commad:
 ssh -i (terraform output -raw ssh_private_key) ubuntu@(terraform output -raw first_instance_public_ip) "nomad job run -" < ../nomad_jobs/ethnode.nomad
 ```
 
-You can check the status and access the logs by opening the Nomad UI. One way to do it is to redirect the remote port 4646 to localhost and opening http://localhost:4646
+You can check the status and access the logs by opening the Nomad UI. One way to do it is to redirect the remote port 4646 to localhost:
+```
+ssh -L 4646:localhost:4646 -i (terraform output -raw ssh_private_key) ubuntu@(terraform output -raw first_instance_public_ip) 
+```
+and opening http://localhost:4646
 
 ## 
 
