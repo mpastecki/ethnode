@@ -1,7 +1,6 @@
 galaxy_info:
   author: marcin
   description: Installs Confluent Kafka
-  company: Pythian
   license: "license (BSD, MIT)"
 
   min_ansible_version: 2.2.1.0
